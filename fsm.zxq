@@ -1,0 +1,33 @@
+use std.io;
+enum State {
+    RED
+    YELLOW
+    GREEN
+}
+
+let (State) state = State_RED;
+
+fn (u0) iter () {
+    switch (state) {
+        case State_RED: {
+            state = State_YELLOW;
+        } break;
+        case State_YELLOW: {
+            state = State_GREEN;
+        } break;
+        case State_GREEN: {
+            state = State_RED;
+        } break;
+    }
+}
+
+fn (i32) main () {
+    printf("%d\n", state);
+    iter();
+    printf("%d\n", state);
+    iter();
+    printf("%d\n", state);
+    iter();
+    printf("%d\n", state);
+    iter();
+}

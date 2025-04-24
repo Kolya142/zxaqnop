@@ -1,0 +1,47 @@
+use glob.raylib;
+use std.io;
+class Vec2 {
+    x (i32)
+    y (i32)
+}
+let stat (Vec2) p = {0};
+
+extfn (i32) IsKeyDown
+extfn (u0) InitWindow
+extfn (u0) SetTargetFPS
+extfn (u0) BeginDrawing
+extfn (u0) ClearBackground
+extfn (u0) DrawCircle
+extfn (u0) EndDrawing
+extfn (u0) printf
+
+fn (u0) println(s: i8*) {
+    printf("%s\n", s);
+}
+
+fn (u0) upd() {
+    if (IsKeyDown(KEY_W)) p.y -= 1;
+    if (IsKeyDown(KEY_A)) p.x -= 1;
+    if (IsKeyDown(KEY_S)) p.y += 1;
+    if (IsKeyDown(KEY_D)) p.x += 1;
+    p.x = (p.x + 800) % 800;
+    p.y = (p.y + 600) % 600;
+}
+
+fn (i32) main() {
+    let (auto) title = ("Hello, world!");
+    let (i8*) test = ("test");
+    defer {return 0;}
+    InitWindow(800, 600, title);
+    SetTargetFPS(60);
+    println(thisofs);
+    loop until (WindowShouldClose()) {
+        upd();
+        BeginDrawing();
+        {
+            ClearBackground(BLUE);
+            DrawCircle(p.x, p.y, 5, WHITE);
+        }
+        EndDrawing();
+    }
+}
