@@ -1,8 +1,8 @@
 use glob.raylib;
 use std.io;
 class Vec2 {
-    x (i32)
-    y (i32)
+    x (i64)
+    y (i64)
 }
 let stat (Vec2) p = {0};
 
@@ -15,7 +15,7 @@ extfn (u0) DrawCircle
 extfn (u0) EndDrawing
 extfn (u0) printf
 
-fn (u0) println(s: i8*) {
+fn (u0) println(s (i8*)) {
     printf("%s\n", s);
 }
 
@@ -32,9 +32,7 @@ fn (u0) upd() {
 }
 
 fn (i32) testfn () {
-    loop range i 0 100 {
-
-    }
+    static_append(static_format "%s vector;" ((typeof(p))))
 }
 
 fn (i32) main() {
@@ -44,8 +42,8 @@ fn (i32) main() {
     let (i16) test3;
     defer {return 0;}
     InitWindow(width, height, title);
-    SetTargetFPS(60);
-    println(static_format "Function: %s %s" (thisof 0));
+    SetTargetFPS(60*4);
+    println(static_format "Function: %s %s" ((thisof) 0));
     loop until (WindowShouldClose()) {
         upd();
         BeginDrawing();

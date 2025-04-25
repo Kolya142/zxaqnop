@@ -9,6 +9,7 @@ def get_c_type(r: str) -> str:
     while r[-1] == '*':
         r = r[:-1]
         i += 1
+    r, *R = r
     if r in functypes:
         t = functypes[r]
     else:
@@ -31,12 +32,15 @@ def get_c_type(r: str) -> str:
                 t = "unsigned int"
             case "u64":
                 t = "unsigned long long"
+            case "f32":
+                t = "float"
+            case "f64":
+                t = "double"
             case "str":
                 t = "char*"
             case _:
-                sys.stderr.write("Type: " + r + "\n")
-                sys.exit(1)
-    return t + '*' * i
+                t = r
+    return t + '*' * i, ''.join(R)
 
 @dataclass
 class CompilerState:
@@ -50,11 +54,16 @@ class CompilerState:
 functypes: Dict[str, str] = {}
 macros: Dict[str, str] = {}
 
-def par2type(par: AstAtom) -> str:  # TODO: parse arrays
+def par2type(par: AstAtom) -> str:
     t = []
     for i in par.value:
-        t.append(i.value)
-    return ''.join(t)
+        if isinstance(i.value, list):
+            t.append('[')
+            t.extend(i.value)
+            t.append(']')
+        else:
+            t.append(i.value)
+    return t
 
 def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
     global functypes, macros
@@ -118,7 +127,8 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                             inner = ""
                             j = 0
                             while j < len(ast[i + 2].value):
-                                inner += get_c_type(par2type(ast[i + 2].value[j + 1])) + " " + ast[i + 2].value[j].value + ";"
+                                t = get_c_type(par2type(ast[i + 2].value[j + 1]))
+                                inner += t[0] + " " + ast[i + 2].value[j].value + t[1] + ";"
                                 j += 2
                             code += f"typedef struct {ast[i + 1].value} {ast[i + 1].value}; typedef struct {ast[i + 1].value} {"{\n"}{inner}{"\n}\n"} {ast[i + 1].value};"
                             functypes[ast[i + 1].value] = ast[i + 1].value
@@ -138,19 +148,15 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                             cstate0 = cstate.dup()
                             cstate0.current = ast[i + 2].value
                             while j < len(ast[i + 3].value):
-                                if j + 1 < len(ast[i + 3].value) and ast[i + 3].value[j + 1].value == ':':
-                                    arg = ast[i + 3].value[j].value
-                                    typ = ''
-                                    j += 2
-                                    while j < len(ast[i + 3].value) and ast[i + 3].value[j].value != ',':
-                                        typ += ast[i + 3].value[j].value
-                                        j += 1
-                                    cstate0.lvars[arg] = get_c_type(typ)
-                                    args += get_c_type(typ) + " " + arg
-                                    if j + 2 < len(ast[i + 3].value):
-                                        args += ", "
-                                j += 1
-                            code += get_c_type(par2type(ast[i + 1])) + " " + ast[i + 2].value + "(" + args + ")" + '{\n' + compiler(ast[i + 4].value, cstate0)[0] + '\n}\n'
+                                arg = ast[i + 3].value[j].value
+                                t = get_c_type(par2type(ast[i + 3].value[j + 1]))
+                                cstate0.lvars[arg] = t
+                                args += t[0] + " " + arg + t[1]
+                                if j + 2 < len(ast[i + 3].value):
+                                    args += ", "
+                                j += 2
+                            t = get_c_type(par2type(ast[i + 1]))
+                            code += t[0] + " " + ast[i + 2].value + "(" + args + ")" + '{\n' + compiler(ast[i + 4].value, cstate0)[0] + '\n}\n'
                             if ast[i + 2].value in functypes:
                                 sys.stderr.write(f"Function {ast[i + 2].value} already exists\n")
                                 sys.exit(1)
@@ -174,9 +180,10 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                                 i += 1
                             cstate0 = cstate.dup()
                             cstate0.current = ast[i + 2].value
+                            t = get_c_type(par2type(ast[i + 1]))
                             if ast[i + 3].value == ";":
-                                code += get_c_type(par2type(ast[i + 1])) + " " + ast[i + 2].value + ';'
-                                cstate.lvars[ast[i + 2].value] = get_c_type(par2type(ast[i + 1]))
+                                code += t[0] + " " + ast[i + 2].value + t[1] + ';'
+                                cstate.lvars[ast[i + 2].value] = t
                                 i += 2
                             else:
                                 if ast[i + 1].value[0].value == "auto":
@@ -184,11 +191,11 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                                     code += s[1].ret + " " + ast[i + 2].value + "=" + s[0] + ';'
                                     cstate.lvars[ast[i + 2].value] = s[1].ret
                                 else:
-                                    code += get_c_type(par2type(ast[i + 1])) + " " + ast[i + 2].value + "=" + compiler([ast[i + 4]], cstate0)[0] + ';'
-                                    cstate.lvars[ast[i + 2].value] = get_c_type(par2type(ast[i + 1]))
+                                    code += t[0] + " " + ast[i + 2].value + t[1] + "=" + compiler([ast[i + 4]], cstate0)[0] + ';'
+                                    cstate.lvars[ast[i + 2].value] = t
                                 i += 5
                         case "typeof":
-                            code += cstate.lvars[ast[i + 1].value[0].value]
+                            code += cstate.lvars[ast[i + 1].value[0].value][0] + cstate.lvars[ast[i + 1].value[0].value][1]
                             i += 1
                         case "thisof":
                             code += cstate.current
@@ -196,6 +203,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                             code += ";\n"
                         case "strize":
                             code += '"' + compiler(ast[i + 1].value, cstate)[0] + '"'
+                            cstate.ret = "char*"
                             i += 1
                         case "return":
                             code += "return "
@@ -215,6 +223,12 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                                 f % a
                             ) + '"'
                             i += 2
+                        case "static_append":
+                            code += compiler([ast[i + 1].value], cstate)[0][1:][:-1]
+                            i += 1
+                        case "static_print":
+                            sys.stderr.write(compiler([ast[i + 1].value], cstate)[0])
+                            i += 1
                         case "undef":
                             del macros[ast[i + 1].value]
                             i += 1

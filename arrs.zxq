@@ -1,0 +1,8 @@
+fn (i32) main () {
+    let (str[]) lines = {
+        "int main() {",
+        "    printf(\"Hello, world!\")",
+        "}"
+    };
+    let (str) t = (strize(typeof(lines)));
+}
