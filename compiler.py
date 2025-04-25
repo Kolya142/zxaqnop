@@ -59,7 +59,7 @@ def par2type(par: AstAtom) -> str:
     for i in par.value:
         if isinstance(i.value, list):
             t.append('[')
-            t.extend(i.value)
+            t.extend(par2type(i))
             t.append(']')
         else:
             t.append(i.value)
@@ -156,7 +156,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                                     args += ", "
                                 j += 2
                             t = get_c_type(par2type(ast[i + 1]))
-                            code += t[0] + " " + ast[i + 2].value + "(" + args + ")" + '{\n' + compiler(ast[i + 4].value, cstate0)[0] + '\n}\n'
+                            code += t[0] + " " + ast[i + 2].value + "(" + args + ")" + '{\n' + (compiler(macros["on_func_enter"], cstate0)[0] if "on_func_enter" in macros else "") + compiler(ast[i + 4].value, cstate0)[0] + (compiler(macros["on_func_exit"], cstate0)[0] if "on_func_exit" in macros else "") + '\n}\n'
                             if ast[i + 2].value in functypes:
                                 sys.stderr.write(f"Function {ast[i + 2].value} already exists\n")
                                 sys.exit(1)
@@ -212,7 +212,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                         case "else":
                             code += "else "
                         case "macro":
-                            macros[compiler([ast[i + 1].value], cstate)[0]] = compiler(ast[i + 2].value, cstate)[0]
+                            macros[compiler([ast[i + 1].value], cstate)[0]] = ast[i + 2].value
                             i += 2
                         case "static_format":
                             a = tuple([compiler([i.value], cstate)[0] for i in ast[i + 2].value])
@@ -234,7 +234,8 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                             i += 1
                         case _:
                             if atom.value in macros:
-                                code += macros[atom.value]
+                                sys.stderr.write(str(macros[atom.value]) + "\n")
+                                code += compiler(macros[atom.value], cstate)[0]
                             else:
                                 if atom.value in functypes:
                                     cstate.ret = functypes[atom.value]
@@ -248,6 +249,9 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                 case AstAtomType.PARENTHES:
                     s = compiler(atom.value, cstate)
                     code += '(' + s[0] + ')'
+                case AstAtomType.SBRACES:
+                    s = compiler(atom.value, cstate)
+                    code += '[\n' + s[0] + '\n]\n'
                 case AstAtomType.CBRACES:
                     s = compiler(atom.value, cstate)
                     code += '{\n' + s[0] + '\n}\n'
@@ -262,4 +266,4 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
     return ('', cstate)
 
 if __name__ == "__main__":
-    print(compiler(parser(lexer(open(sys.argv[1]).read()), ParserState.SIMPLE)[0], CompilerState({}, None, "toplevel", 0))[0])
+    print(compiler(parser(lexer(open(sys.argv[1]).read()), ParserState.SIMPLE)[0], CompilerState({}, "toplevel", "toplevel", 0))[0])

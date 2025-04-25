@@ -1,10 +1,27 @@
 use glob.raylib;
+use std.std;
 use std.io;
 class Vec2 {
     x (i64)
     y (i64)
 }
 let stat (Vec2) p = {0};
+
+let stat (str[1024]) stacktrace = {0};
+let stat (u64) stacktracei = 1;
+
+macro on_func_enter (stacktrace[stacktracei++] = strize(thisof);)
+macro on_func_exit (--stacktracei;)
+
+fn (u0) panic(message (str)) {
+    stacktracei -= 1;
+    printf("Panic at %s \"%s\"\n", stacktrace[stacktracei-1], message);
+    printf("Stack Trace:\n");
+    while (stacktracei) {
+        printf("    Function: %s\n", stacktrace[stacktracei--]);
+    }
+    exit(1);
+}
 
 extfn (i32) IsKeyDown
 extfn (u0) InitWindow
@@ -28,7 +45,10 @@ fn (u0) upd() {
     if (IsKeyDown(KEY_S)) p.y += 1;
     if (IsKeyDown(KEY_D)) p.x += 1;
     p.x = (p.x + width) % width;
-    p.y = (p.y + height) % height;
+    if (p.y < 0) {
+        panic("p.y < 0");
+    }
+    p.y = p.y % height;
 }
 
 fn (i32) testfn () {
