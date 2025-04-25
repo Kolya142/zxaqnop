@@ -48,15 +48,16 @@ class CompilerState:
         return CompilerState(self.lvars.copy(), self.current, self.ret, self.indent + 4)
 
 functypes: Dict[str, str] = {}
+macros: Dict[str, str] = {}
 
-def par2type(par: AstAtom) -> str:
+def par2type(par: AstAtom) -> str:  # TODO: parse arrays
     t = []
     for i in par.value:
         t.append(i.value)
     return ''.join(t)
 
 def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
-    global functypes
+    global functypes, macros
     if isinstance(ast, list):
         i = 0
         code = ""
@@ -99,14 +100,18 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                             elif name[0] == 'there':
                                 code += compiler(parser(lexer(open({name[2]+".zxq"}).read()), ParserState.SIMPLE)[0], cstate)[0]
                         case "defer":
-                            defer = "\ndefer:\n" + compiler([ast[i + 1]], cstate)[0]
+                            defer = compiler([ast[i + 1]], cstate)[0]
                             i += 1
-                        case "dodefer":
-                            code += "goto defer;"
                         case "loop":
                             if ast[i + 1].value == "until":
                                 code += "while (!" + compiler(ast[i + 2].value, cstate)[0] + ")"
                                 i += 2
+                            elif ast[i + 1].value == "range":
+                                v = compiler([ast[i + 2].value], cstate)[0]
+                                l = compiler([ast[i + 3].value], cstate)[0]
+                                r = compiler([ast[i + 4].value], cstate)[0]
+                                code += f"for (long long {v} = {l}; {v} < {r}; ++{v})"
+                                i += 4
                             else:
                                 code += "for (;;)"
                         case "class":
@@ -115,7 +120,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                             while j < len(ast[i + 2].value):
                                 inner += get_c_type(par2type(ast[i + 2].value[j + 1])) + " " + ast[i + 2].value[j].value + ";"
                                 j += 2
-                            code += f"typedef struct {ast[i + 1].value} {ast[i + 1].value}; typedef struct {ast[i + 1].value} {"{"}{inner}{"}"} {ast[i + 1].value};"
+                            code += f"typedef struct {ast[i + 1].value} {ast[i + 1].value}; typedef struct {ast[i + 1].value} {"{\n"}{inner}{"\n}\n"} {ast[i + 1].value};"
                             functypes[ast[i + 1].value] = ast[i + 1].value
                             i += 2
                         case "enum":
@@ -124,7 +129,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                             while j < len(ast[i + 2].value):
                                 inner += ast[i + 1].value + "_" + ast[i + 2].value[j].value + ","
                                 j += 1
-                            code += f"typedef enum {ast[i + 1].value} {ast[i + 1].value}; typedef enum {ast[i + 1].value} {"{"}{inner}{"}"} {ast[i + 1].value};"
+                            code += f"typedef enum {ast[i + 1].value} {ast[i + 1].value}; typedef enum {ast[i + 1].value} {"{\n"}{inner}{"\n}\n"} {ast[i + 1].value};"
                             functypes[ast[i + 1].value] = ast[i + 1].value
                             i += 2
                         case "fn":
@@ -145,7 +150,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                                     if j + 2 < len(ast[i + 3].value):
                                         args += ", "
                                 j += 1
-                            code += get_c_type(par2type(ast[i + 1])) + " " + ast[i + 2].value + "(" + args + ")" + '{' + compiler(ast[i + 4].value, cstate0)[0] + '}'
+                            code += get_c_type(par2type(ast[i + 1])) + " " + ast[i + 2].value + "(" + args + ")" + '{\n' + compiler(ast[i + 4].value, cstate0)[0] + '\n}\n'
                             if ast[i + 2].value in functypes:
                                 sys.stderr.write(f"Function {ast[i + 2].value} already exists\n")
                                 sys.exit(1)
@@ -157,7 +162,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                                 sys.exit(1)
                             functypes[ast[i + 2].value] = get_c_type(par2type(ast[i + 1]))
                             i += 2
-                        case "let": # TODO: fix pointers
+                        case "let":
                             if ast[i + 1].value == "stat":
                                 code += "static "
                                 i += 1
@@ -169,36 +174,48 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                                 i += 1
                             cstate0 = cstate.dup()
                             cstate0.current = ast[i + 2].value
-                            if ast[i + 1].value[0].value == "auto":
-                                s = compiler([ast[i + 4]], cstate0)
-                                code += s[1].ret + " " + ast[i + 2].value + "=" + s[0] + ';'
-                                cstate.lvars[ast[i + 2].value] = s[1].ret
-                            else:
-                                code += get_c_type(par2type(ast[i + 1])) + " " + ast[i + 2].value + "=" + compiler([ast[i + 4]], cstate0)[0] + ';'
+                            if ast[i + 3].value == ";":
+                                code += get_c_type(par2type(ast[i + 1])) + " " + ast[i + 2].value + ';'
                                 cstate.lvars[ast[i + 2].value] = get_c_type(par2type(ast[i + 1]))
-                            i += 5
+                                i += 2
+                            else:
+                                if ast[i + 1].value[0].value == "auto":
+                                    s = compiler([ast[i + 4]], cstate0)
+                                    code += s[1].ret + " " + ast[i + 2].value + "=" + s[0] + ';'
+                                    cstate.lvars[ast[i + 2].value] = s[1].ret
+                                else:
+                                    code += get_c_type(par2type(ast[i + 1])) + " " + ast[i + 2].value + "=" + compiler([ast[i + 4]], cstate0)[0] + ';'
+                                    cstate.lvars[ast[i + 2].value] = get_c_type(par2type(ast[i + 1]))
+                                i += 5
                         case "typeof":
                             code += cstate.lvars[ast[i + 1].value[0].value]
                             i += 1
-                        case "typeofs":
-                            code += '"' + cstate.lvars[ast[i + 1].value[0].value] + '"'
-                            i += 1
                         case "thisof":
                             code += cstate.current
-                        case "thisofs":
-                            code += '"' + cstate.current + '"'
-                        case "#":
-                            code += "#"
+                        case ";":
+                            code += ";\n"
+                        case "strize":
+                            code += '"' + compiler(ast[i + 1].value, cstate)[0] + '"'
+                            i += 1
                         case "return":
                             code += "return "
                         case "case":
                             code += "case "
                         case "else":
                             code += "else "
+                        case "macro":
+                            macros[compiler([ast[i + 1].value], cstate)[0]] = compiler(ast[i + 2].value, cstate)[0]
+                            i += 2
+                        case "undef":
+                            del macros[ast[i + 1].value]
+                            i += 1
                         case _:
-                            if atom.value in functypes:
-                                cstate.ret = functypes[atom.value]
-                            code += atom.value
+                            if atom.value in macros:
+                                code += macros[atom.value]
+                            else:
+                                if atom.value in functypes:
+                                    cstate.ret = functypes[atom.value]
+                                code += atom.value
                 case AstAtomType.INT:
                     if atom.value[0] == '-':
                         cstate.ret = 'long long'
@@ -210,7 +227,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                     code += '(' + s[0] + ')'
                 case AstAtomType.CBRACES:
                     s = compiler(atom.value, cstate)
-                    code += '{\n' + ' ' * cstate.indent + s[0] + ' ' * cstate.indent + '\n' + ' ' * cstate.indent + '}\n' + ' ' * cstate.indent
+                    code += '{\n' + s[0] + '\n}\n'
                 case AstAtomType.STR:
                     cstate.ret = 'char*'
                     code += '"' + atom.value + '"'

@@ -1,0 +1,14 @@
+use std.io;
+
+fn (i32) main() {
+    let (u64) x = 1;
+    let (u64) y = 1;
+    let (u64) z;
+
+    while (x < 512) {
+        printf("%d\n", x);
+        z = x + y;
+        y = x;
+        x = z;
+    }
+}

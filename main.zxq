@@ -19,22 +19,33 @@ fn (u0) println(s: i8*) {
     printf("%s\n", s);
 }
 
+macro width (1280)
+macro height (720)
+
 fn (u0) upd() {
     if (IsKeyDown(KEY_W)) p.y -= 1;
     if (IsKeyDown(KEY_A)) p.x -= 1;
     if (IsKeyDown(KEY_S)) p.y += 1;
     if (IsKeyDown(KEY_D)) p.x += 1;
-    p.x = (p.x + 800) % 800;
-    p.y = (p.y + 600) % 600;
+    p.x = (p.x + width) % width;
+    p.y = (p.y + height) % height;
+}
+
+fn (i32) testfn () {
+    loop range i 0 100 {
+
+    }
 }
 
 fn (i32) main() {
     let (auto) title = ("Hello, world!");
     let (i8*) test = ("test");
+    let (u32) test2 = (5);
+    let (i16) test3;
     defer {return 0;}
-    InitWindow(800, 600, title);
+    InitWindow(width, height, title);
     SetTargetFPS(60);
-    println(thisofs);
+    println(strize(thisof));
     loop until (WindowShouldClose()) {
         upd();
         BeginDrawing();
