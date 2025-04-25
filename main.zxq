@@ -43,6 +43,7 @@ fn (i32) main() {
     defer {return 0;}
     InitWindow(width, height, title);
     SetTargetFPS(60*4);
+    println(strize(typeof(title)));
     println(static_format "Function: %s %s" ((thisof) 0));
     loop until (WindowShouldClose()) {
         upd();

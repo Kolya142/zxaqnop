@@ -1,0 +1,11 @@
+use std.io;
+
+fn (i32) main () {
+    loop range j 0 16 {
+        loop range i 0 16 {
+            if (i & (15-j)) putchar('.');
+            else putchar('#');
+        }
+        putchar('\n');
+    }
+}

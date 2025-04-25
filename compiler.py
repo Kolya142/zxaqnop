@@ -195,7 +195,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                                     cstate.lvars[ast[i + 2].value] = t
                                 i += 5
                         case "typeof":
-                            code += cstate.lvars[ast[i + 1].value[0].value][0] + cstate.lvars[ast[i + 1].value[0].value][1]
+                            code += ''.join(cstate.lvars[ast[i + 1].value[0].value])
                             i += 1
                         case "thisof":
                             code += cstate.current
@@ -254,6 +254,9 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                 case AstAtomType.STR:
                     cstate.ret = 'char*'
                     code += '"' + atom.value + '"'
+                case AstAtomType.CHAR:
+                    cstate.ret = 'char'
+                    code += '\'' + atom.value + '\''
             i += 1
         return (code + defer, cstate)
     return ('', cstate)
