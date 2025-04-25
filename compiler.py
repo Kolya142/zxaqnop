@@ -65,7 +65,7 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
         while i < len(ast):
             atom = ast[i]
             if isinstance(atom, list):
-                code += compiler(atom)[0]
+                code += compiler(atom, cstate)[0]
                 i += 1
                 continue
             elif isinstance(atom, str):
@@ -205,6 +205,15 @@ def compiler(ast: Ast, cstate: CompilerState) -> Tuple[object, CompilerState]:
                             code += "else "
                         case "macro":
                             macros[compiler([ast[i + 1].value], cstate)[0]] = compiler(ast[i + 2].value, cstate)[0]
+                            i += 2
+                        case "static_format":
+                            a = tuple([compiler([i.value], cstate)[0] for i in ast[i + 2].value])
+                            sys.stderr.write(str(a))
+                            f = compiler([ast[i + 1].value], cstate)[0]
+                            sys.stderr.write("\nFormat: " + str(f) + "\n")
+                            code += '"' + (
+                                f % a
+                            ) + '"'
                             i += 2
                         case "undef":
                             del macros[ast[i + 1].value]
